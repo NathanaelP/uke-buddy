@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Uke Buddy</title>
+  <meta name="description" content="Follow-along ukulele practice assistant" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon-192.png" type="image/png" />
+  <meta name="theme-color" content="#2d6a4f" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>Uke Buddy</h1>
+    <nav class="app-nav">
+      <button id="btn-view-builder" type="button" class="app-nav__btn">Build</button>
+      <button id="btn-view-practice" type="button" class="app-nav__btn">Practice</button>
+      <button id="btn-view-songs" type="button" class="app-nav__btn">My Songs</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Builder view -->
+    <section id="view-builder" class="view">
+      <h2>Build a progression</h2>
+
+      <div class="builder-controls">
+        <label for="chord-select">Chord</label>
+        <select id="chord-select"></select>
+
+        <label for="beats-input">Beats</label>
+        <input id="beats-input" type="number" min="1" value="4" />
+
+        <button id="add-chord-btn" type="button">Add to progression</button>
+      </div>
+
+      <ol id="progression-list" class="progression-list"></ol>
+
+      <div class="builder-save">
+        <label for="song-title-input">Song title</label>
+        <input id="song-title-input" type="text" placeholder="e.g. Riptide" />
+
+        <label for="bpm-input">BPM (optional)</label>
+        <input id="bpm-input" type="number" min="1" placeholder="100" />
+
+        <div class="builder-save__actions">
+          <button id="save-progression-btn" type="button">Save Progression</button>
+          <button id="practice-now-btn" type="button">Practice This Progression</button>
+          <button id="clear-progression-btn" type="button">Clear</button>
+        </div>
+        <p id="builder-status" class="builder-status" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <!-- Practice view -->
+    <section id="view-practice" class="view hidden">
+      <h2 id="practice-song-title">Practice</h2>
+
+      <p id="practice-empty-message">No progression loaded yet. Build one or load a saved song.</p>
+
+      <div id="practice-content" class="practice-content hidden">
+        <div class="practice-diagrams">
+          <div class="practice-diagrams__current">
+            <div id="practice-current-diagram" class="diagram-container diagram-container--large"></div>
+          </div>
+          <div class="practice-diagrams__next">
+            <p id="practice-next-label" class="practice-next-label">Next</p>
+            <div id="practice-next-diagram" class="diagram-container diagram-container--small"></div>
+          </div>
+        </div>
+
+        <div id="practice-strip" class="practice-strip"></div>
+
+        <div class="practice-nav">
+          <button id="prev-btn" type="button">◀ Previous</button>
+          <button id="next-btn" type="button">Next ▶</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Songs view -->
+    <section id="view-songs" class="view hidden">
+      <h2>My Songs</h2>
+      <p id="songs-empty-message">No saved songs yet.</p>
+      <ul id="songs-list" class="songs-list"></ul>
+    </section>
+  </main>
+
+  <script src="js/chord-data.js"></script>
+  <script src="js/diagram-renderer.js"></script>
+  <script src="js/chordpro-parser.js"></script>
+  <script src="js/progression-store.js"></script>
+  <script src="js/audio-listener.js"></script>
+  <script src="js/chord-matcher.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
