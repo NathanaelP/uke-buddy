@@ -24,6 +24,8 @@ Plain HTML, CSS, and JavaScript. No build step, no frameworks. Audio analysis vi
 ```
 /uke-buddy
   index.html
+  sw.js                  // service worker (kept at root for full-app cache scope)
+  manifest.json
   /css
     styles.css
   /js
@@ -34,8 +36,9 @@ Plain HTML, CSS, and JavaScript. No build step, no frameworks. Audio analysis vi
     chordpro-parser.js    // .cho/.crd import parser
     progression-store.js  // localStorage CRUD
     diagram-renderer.js   // SVG fingering diagrams
-    sw.js                 // service worker
-  manifest.json
+  /icons
+    icon-192.png
+    icon-512.png
   ukulele-chord-assistant-plan.md
   README.md
 ```
