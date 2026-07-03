@@ -2,12 +2,14 @@
 const VIEWS = ["builder", "practice", "songs"];
 
 let builderProgression = [];
+let builderProgressionSource = "manual"; // "manual" | "chordpro-import"
 let practiceState = { title: "", progression: [], index: 0 };
 
 document.addEventListener("DOMContentLoaded", () => {
   registerServiceWorker();
   initNav();
   initBuilder();
+  initChordProImport();
   initPractice();
   initSongsView();
   showView("builder");
@@ -55,6 +57,8 @@ function initBuilder() {
 
   document.getElementById("clear-progression-btn").addEventListener("click", () => {
     builderProgression = [];
+    builderProgressionSource = "manual";
+    document.getElementById("chordpro-file-input").value = "";
     document.getElementById("song-title-input").value = "";
     document.getElementById("bpm-input").value = "";
     setBuilderStatus("");
@@ -76,7 +80,7 @@ function initBuilder() {
       title,
       bpm: Number.isFinite(bpmValue) ? bpmValue : null,
       progression: builderProgression,
-      source: "manual",
+      source: builderProgressionSource,
     });
     setBuilderStatus(`Saved "${title}".`);
   });
@@ -157,6 +161,63 @@ function makeButton(label, ariaLabel, onClick) {
   return btn;
 }
 
+// ---- ChordPro import ----
+
+function initChordProImport() {
+  const fileInput = document.getElementById("chordpro-file-input");
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      handleChordProFileLoaded(String(reader.result || ""));
+      fileInput.value = ""; // allow re-selecting the same file later
+    };
+    reader.onerror = () => {
+      setBuilderStatus("Could not read that file. Please try again.");
+      fileInput.value = "";
+    };
+    reader.readAsText(file);
+  });
+}
+
+function handleChordProFileLoaded(text) {
+  let result;
+  try {
+    result = parseChordPro(text);
+  } catch (err) {
+    console.error("Failed to parse ChordPro file", err);
+    setBuilderStatus("Could not parse that file as ChordPro.");
+    return;
+  }
+
+  builderProgression = result.progression;
+  builderProgressionSource = "chordpro-import";
+  renderProgressionList();
+
+  const titleInput = document.getElementById("song-title-input");
+  if (!titleInput.value.trim() && result.title) {
+    titleInput.value = result.title;
+  }
+
+  setBuilderStatus(summarizeChordProImport(result));
+}
+
+function summarizeChordProImport(result) {
+  const count = result.progression.length;
+  if (count === 0) {
+    return "No chords found in that file.";
+  }
+  let message = `Imported ${count} chord${count === 1 ? "" : "s"}`;
+  if (result.title) message += ` from "${result.title}"`;
+  message += ".";
+  if (result.unsupportedChords.length > 0) {
+    message += ` No diagram available for: ${result.unsupportedChords.join(", ")}.`;
+  }
+  return message;
+}
+
 // ---- Practice view ----
 
 function initPractice() {
@@ -210,11 +271,11 @@ function renderPracticeView() {
   const currentEntry = progression[index];
   const nextEntry = progression[index + 1];
 
-  renderChordDiagramInto(currentContainer, getChordByName(currentEntry.chord), "large");
+  renderChordDiagramInto(currentContainer, getChordByName(currentEntry.chord), "large", currentEntry.chord);
 
   if (nextEntry) {
     nextLabel.textContent = "Next";
-    renderChordDiagramInto(nextContainer, getChordByName(nextEntry.chord), "small");
+    renderChordDiagramInto(nextContainer, getChordByName(nextEntry.chord), "small", nextEntry.chord);
   } else {
     nextLabel.textContent = "End of progression";
     nextContainer.innerHTML = "";
