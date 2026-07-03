@@ -138,8 +138,16 @@ function renderChordDiagram(chord, size = "large") {
 }
 
 // Renders a chord diagram into a container element, replacing its contents.
-function renderChordDiagramInto(container, chord, size = "large") {
+// chordName (optional) is used to label the "no diagram" placeholder when
+// chord is missing, e.g. for a chord name not found in the database.
+function renderChordDiagramInto(container, chord, size = "large", chordName) {
   container.innerHTML = "";
-  if (!chord) return;
+  if (!chord) {
+    const placeholder = document.createElement("p");
+    placeholder.className = `chord-diagram__placeholder chord-diagram__placeholder--${size}`;
+    placeholder.textContent = chordName ? `No diagram available for "${chordName}"` : "No diagram available";
+    container.appendChild(placeholder);
+    return;
+  }
   container.appendChild(renderChordDiagram(chord, size));
 }
