@@ -20,6 +20,16 @@ function registerServiceWorker() {
     navigator.serviceWorker.register("sw.js").catch((err) => {
       console.error("Service worker registration failed", err);
     });
+
+    // When a new service worker version takes over (see CACHE_NAME in sw.js),
+    // reload once so the page picks up the fresh assets immediately instead of
+    // silently continuing to run on stale cached files.
+    let hasReloadedForUpdate = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (hasReloadedForUpdate) return;
+      hasReloadedForUpdate = true;
+      window.location.reload();
+    });
   }
 }
 

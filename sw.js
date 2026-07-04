@@ -1,5 +1,9 @@
 // Minimal service worker: caches the app shell for offline use.
-const CACHE_NAME = "uke-buddy-shell-v1";
+// Bump CACHE_NAME on every deploy that changes any cached file — browsers only
+// re-install a service worker when its script bytes change, so an unchanged
+// version string here means visitors keep getting old cached assets forever,
+// even after new files are pushed to the server.
+const CACHE_NAME = "uke-buddy-shell-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
