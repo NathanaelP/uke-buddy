@@ -6,6 +6,7 @@
   --color-primary-dark: #1b4332;
   --color-border: #d8d3c8;
   --color-muted: #6b7280;
+  --color-error: #b3261e;
   font-size: 16px;
 }
 
@@ -233,7 +234,8 @@ button {
 
 .chord-diagram__label,
 .chord-diagram__open-marker,
-.chord-diagram__mute-marker {
+.chord-diagram__mute-marker,
+.chord-diagram__position-label {
   fill: currentColor;
 }
 
@@ -252,6 +254,53 @@ button {
   text-align: center;
   margin: 0;
   padding: 1rem 0.5rem;
+}
+
+.practice-listen {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.practice-listen button {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-primary);
+  color: white;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.practice-listen button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.practice-listen-status {
+  margin: 0;
+  font-size: 0.9rem;
+  flex-basis: 100%;
+}
+
+.practice-listen-status--idle {
+  color: var(--color-muted);
+}
+
+.practice-listen-status--listening {
+  color: var(--color-primary-dark);
+}
+
+.practice-listen-status--matched {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.practice-listen-status--error {
+  color: var(--color-error);
+  font-weight: 600;
 }
 
 .practice-strip {

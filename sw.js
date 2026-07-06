@@ -3,7 +3,7 @@
 // re-install a service worker when its script bytes change, so an unchanged
 // version string here means visitors keep getting old cached assets forever,
 // even after new files are pushed to the server.
-const CACHE_NAME = "uke-buddy-shell-v2";
+const CACHE_NAME = "uke-buddy-shell-v4";
 const APP_SHELL = [
   "./",
   "./index.html",
