@@ -19,6 +19,8 @@ function createSvgElement(tag, attrs) {
 function renderChordDiagram(chord, size = "large") {
   const cfg = DIAGRAM_SIZES[size] || DIAGRAM_SIZES.large;
   const { width, height, fretRows, dotRadius, fontSize, labelFontSize } = cfg;
+  const baseFret = chord.baseFret || 1;
+  const isNutPosition = baseFret === 1;
 
   const marginTop = labelFontSize + 24;
   const marginSide = width * 0.15;
@@ -48,7 +50,20 @@ function renderChordDiagram(chord, size = "large") {
   label.textContent = chord.name;
   svg.appendChild(label);
 
-  // Nut (thick top line) and fret lines
+  // Nut (thick top line) at the open position, or a fret-position label
+  // ("4fr") when the shape starts further up the neck.
+  if (!isNutPosition) {
+    const positionLabel = createSvgElement("text", {
+      x: marginSide - 6,
+      y: marginTop + fretGap * 0.5 + fontSize * 0.3,
+      "text-anchor": "end",
+      "font-size": fontSize * 0.7,
+      class: "chord-diagram__position-label",
+    });
+    positionLabel.textContent = `${baseFret}fr`;
+    svg.appendChild(positionLabel);
+  }
+
   for (let f = 0; f <= fretRows; f++) {
     const y = marginTop + f * fretGap;
     svg.appendChild(
@@ -58,7 +73,7 @@ function renderChordDiagram(chord, size = "large") {
         x2: marginSide + gridWidth,
         y2: y,
         stroke: "currentColor",
-        "stroke-width": f === 0 ? 4 : 1.5,
+        "stroke-width": isNutPosition && f === 0 ? 4 : 1.5,
         class: "chord-diagram__fret-line",
       })
     );
@@ -110,7 +125,7 @@ function renderChordDiagram(chord, size = "large") {
       return;
     }
 
-    const y = marginTop + (fret - 0.5) * fretGap;
+    const y = marginTop + (fret - baseFret + 0.5) * fretGap;
     svg.appendChild(
       createSvgElement("circle", {
         cx: x,

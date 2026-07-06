@@ -234,7 +234,8 @@ button {
 
 .chord-diagram__label,
 .chord-diagram__open-marker,
-.chord-diagram__mute-marker {
+.chord-diagram__mute-marker,
+.chord-diagram__position-label {
   fill: currentColor;
 }
 
