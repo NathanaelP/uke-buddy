@@ -4,6 +4,9 @@ const VIEWS = ["builder", "practice", "songs"];
 let builderProgression = [];
 let builderProgressionSource = "manual"; // "manual" | "chordpro-import"
 let practiceState = { title: "", progression: [], index: 0 };
+let listeningActive = false;
+let listenDebouncer = null;
+let listenStatusFlashTimeoutId = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   registerServiceWorker();
@@ -21,11 +24,21 @@ function registerServiceWorker() {
       console.error("Service worker registration failed", err);
     });
 
-    // When a new service worker version takes over (see CACHE_NAME in sw.js),
-    // reload once so the page picks up the fresh assets immediately instead of
-    // silently continuing to run on stale cached files.
+    // A page that loads with no controller yet fires "controllerchange" once
+    // for the *initial* service worker taking over (clients.claim() in
+    // sw.js) — that's normal first-time setup, not a content update, and the
+    // page's own assets were already fetched fresh moments ago, so there's
+    // nothing to reload for. Only ignore that one event if there wasn't
+    // already a controller in place; a page that loads already controlled by
+    // a service worker has no such "initial activation" to skip, so its very
+    // first controllerchange is a genuine version swap.
+    let ignoredInitialActivation = navigator.serviceWorker.controller !== null;
     let hasReloadedForUpdate = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!ignoredInitialActivation) {
+        ignoredInitialActivation = true;
+        return;
+      }
       if (hasReloadedForUpdate) return;
       hasReloadedForUpdate = true;
       window.location.reload();
@@ -34,6 +47,7 @@ function registerServiceWorker() {
 }
 
 function showView(name) {
+  if (name !== "practice") teardownListeningIfActive();
   VIEWS.forEach((v) => {
     document.getElementById(`view-${v}`).classList.toggle("hidden", v !== name);
     document.getElementById(`btn-view-${v}`).classList.toggle("active", v === name);
@@ -232,21 +246,20 @@ function summarizeChordProImport(result) {
 
 function initPractice() {
   document.getElementById("prev-btn").addEventListener("click", () => {
-    if (practiceState.index > 0) {
-      practiceState.index -= 1;
-      renderPracticeView();
-    }
+    goToPracticeIndex(practiceState.index - 1);
   });
 
   document.getElementById("next-btn").addEventListener("click", () => {
-    if (practiceState.index < practiceState.progression.length - 1) {
-      practiceState.index += 1;
-      renderPracticeView();
-    }
+    goToPracticeIndex(practiceState.index + 1);
   });
+
+  document.getElementById("listen-start-btn").addEventListener("click", startListening);
+  document.getElementById("listen-stop-btn").addEventListener("click", () => teardownListeningIfActive());
 }
 
 function loadIntoPractice(song) {
+  teardownListeningIfActive();
+  setListenStatus("idle", "");
   practiceState = {
     title: song.title || "Untitled",
     progression: song.progression || [],
@@ -254,6 +267,19 @@ function loadIntoPractice(song) {
   };
   renderPracticeView();
   showView("practice");
+}
+
+// Single entry point for changing the practice index, used by manual
+// Previous/Next, the progression strip, and auto-advance on a confirmed
+// chord match alike — so a listening debouncer's streak is always reset
+// against whatever chord becomes current, never carried over from before.
+function goToPracticeIndex(newIndex) {
+  if (newIndex < 0 || newIndex >= practiceState.progression.length) return;
+  practiceState.index = newIndex;
+  renderPracticeView();
+  if (listeningActive) {
+    listenDebouncer = createChordMatchDebouncer();
+  }
 }
 
 function renderPracticeView() {
@@ -298,8 +324,7 @@ function renderPracticeView() {
     item.className = "practice-strip__item" + (i === index ? " practice-strip__item--current" : "");
     item.textContent = `${entry.chord}`;
     item.addEventListener("click", () => {
-      practiceState.index = i;
-      renderPracticeView();
+      goToPracticeIndex(i);
     });
     strip.appendChild(item);
   });
@@ -311,6 +336,97 @@ function renderPracticeView() {
 
   prevBtn.disabled = index === 0;
   nextBtn.disabled = index === progression.length - 1;
+}
+
+// ---- Mic listening ----
+
+function listeningPrompt() {
+  return `Listening for ${practiceState.progression[practiceState.index].chord}…`;
+}
+
+async function startListening() {
+  if (practiceState.progression.length === 0) return;
+  document.getElementById("listen-start-btn").disabled = true;
+  document.getElementById("listen-stop-btn").disabled = false;
+  setListenStatus("listening", listeningPrompt());
+  listenDebouncer = createChordMatchDebouncer();
+
+  try {
+    await startAudioListener(handleChromaFrame, () => {
+      teardownListeningIfActive();
+      setListenStatus("error", "Microphone disconnected.");
+    });
+    listeningActive = true;
+  } catch (err) {
+    console.error("Failed to start microphone listening", err);
+    listeningActive = false;
+    document.getElementById("listen-start-btn").disabled = false;
+    document.getElementById("listen-stop-btn").disabled = true;
+    setListenStatus("error", describeMicError(err));
+  }
+}
+
+// Stops the mic + resets listening UI state. Pass resetStatus: false to
+// leave whatever status message is currently displayed alone (used when the
+// progression just completed, so the "matched!" message isn't immediately
+// overwritten by this same call releasing the mic).
+function teardownListeningIfActive({ resetStatus = true } = {}) {
+  if (!listeningActive && !isAudioListenerRunning()) return;
+  stopAudioListener();
+  listeningActive = false;
+  listenDebouncer = null;
+  document.getElementById("listen-start-btn").disabled = false;
+  document.getElementById("listen-stop-btn").disabled = true;
+  if (resetStatus) setListenStatus("idle", "");
+}
+
+function handleChromaFrame(chroma) {
+  const currentEntry = practiceState.progression[practiceState.index];
+  if (!currentEntry) return;
+  const chord = getChordByName(currentEntry.chord);
+  if (!chord) return; // no fingering data for this chord name, nothing to match against
+  if (!checkChordMatch(listenDebouncer, chroma, chord)) return;
+
+  const isLastChord = practiceState.index >= practiceState.progression.length - 1;
+  if (isLastChord) {
+    setListenStatus("matched", `Matched ${currentEntry.chord}! Progression complete.`);
+    teardownListeningIfActive({ resetStatus: false });
+    return;
+  }
+
+  setListenStatus("matched", `Matched ${currentEntry.chord}!`);
+  goToPracticeIndex(practiceState.index + 1);
+  scheduleStatusFlash(() => setListenStatus("listening", listeningPrompt()), 500);
+}
+
+function setListenStatus(state, message) {
+  if (listenStatusFlashTimeoutId !== null) {
+    clearTimeout(listenStatusFlashTimeoutId);
+    listenStatusFlashTimeoutId = null;
+  }
+  const el = document.getElementById("practice-listen-status");
+  el.textContent = message;
+  el.className = `practice-listen-status practice-listen-status--${state}`;
+}
+
+function scheduleStatusFlash(fn, delayMs) {
+  listenStatusFlashTimeoutId = setTimeout(() => {
+    listenStatusFlashTimeoutId = null;
+    fn();
+  }, delayMs);
+}
+
+function describeMicError(err) {
+  if (err && err.name === "NotAllowedError") {
+    return "Microphone permission was denied. Allow mic access to use auto-listen (Previous/Next still work).";
+  }
+  if (err && err.name === "NotFoundError") {
+    return "No microphone was found on this device. Previous/Next still work.";
+  }
+  if (err && err.name === "InsecureContextError") {
+    return "Microphone access requires HTTPS (or localhost). Previous/Next still work.";
+  }
+  return "Could not access the microphone. Previous/Next still work.";
 }
 
 // ---- Songs view ----
